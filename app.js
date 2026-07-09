@@ -652,11 +652,64 @@ const WALK_FREQ = 7;
 
 let lastTime = performance.now();
 
+// Nearby-dog avoidance: a soft steering push away from close neighbors
+// (blended into the movement/facing direction) plus a hard pairwise
+// position correction after everyone's moved, so dogs slide around each
+// other instead of clipping through.
+const AVOID_RADIUS = 0.9;
+const AVOID_WEIGHT = 1.3;
+const MIN_SEPARATION = 0.5;
+
+function steeringPush(entity, allEntities) {
+  const pos = entity.model.root.position;
+  const push = new THREE.Vector3();
+  for (const other of allEntities) {
+    if (other === entity) continue;
+    const otherPos = other.model.root.position;
+    const dx = pos.x - otherPos.x;
+    const dz = pos.z - otherPos.z;
+    const distSq = dx * dx + dz * dz;
+    if (distSq < AVOID_RADIUS * AVOID_RADIUS && distSq > 1e-6) {
+      const dist = Math.sqrt(distSq);
+      const strength = (AVOID_RADIUS - dist) / AVOID_RADIUS;
+      push.x += (dx / dist) * strength;
+      push.z += (dz / dist) * strength;
+    }
+  }
+  return push;
+}
+
+function resolveOverlaps(allEntities) {
+  for (let i = 0; i < allEntities.length; i++) {
+    for (let j = i + 1; j < allEntities.length; j++) {
+      const a = allEntities[i], b = allEntities[j];
+      const ap = a.model.root.position, bp = b.model.root.position;
+      const dx = bp.x - ap.x, dz = bp.z - ap.z;
+      const distSq = dx * dx + dz * dz;
+      const minDist = MIN_SEPARATION * ((a.baseScale + b.baseScale) / 2);
+      if (distSq < minDist * minDist) {
+        const dist = Math.sqrt(distSq) || 0.001;
+        const overlap = (minDist - dist) / 2;
+        const nx = dx / dist, nz = dz / dist;
+        ap.x -= nx * overlap; ap.z -= nz * overlap;
+        bp.x += nx * overlap; bp.z += nz * overlap;
+      }
+    }
+  }
+  for (const e of allEntities) {
+    const p = e.model.root.position;
+    p.x = THREE.MathUtils.clamp(p.x, -BOUNDS.x + 0.4, BOUNDS.x - 0.4);
+    p.z = THREE.MathUtils.clamp(p.z, -BOUNDS.z + 0.4, BOUNDS.z - 0.4);
+  }
+}
+
 function animate(now) {
   const dt = Math.min((now - lastTime) / 1000, 0.1);
   lastTime = now;
 
-  for (const entity of entities.values()) {
+  const entityList = [...entities.values()];
+
+  for (const entity of entityList) {
     const { model } = entity;
     const pos = model.root.position;
 
@@ -678,9 +731,11 @@ function animate(now) {
     } else {
       moving = true;
       toTarget.normalize();
-      pos.addScaledVector(toTarget, entity.speed * dt);
-      // Dog's local forward is -Z; face rotation.y so that axis points at the target.
-      const targetAngle = Math.atan2(-toTarget.x, -toTarget.z);
+      const desired = toTarget.clone().addScaledVector(steeringPush(entity, entityList), AVOID_WEIGHT);
+      if (desired.lengthSq() > 1e-6) desired.normalize();
+      pos.addScaledVector(desired, entity.speed * dt);
+      // Dog's local forward is -Z; face rotation.y so that axis points at the (avoidance-adjusted) direction.
+      const targetAngle = Math.atan2(-desired.x, -desired.z);
       let da = targetAngle - model.root.rotation.y;
       da = Math.atan2(Math.sin(da), Math.cos(da));
       model.root.rotation.y += da * Math.min(1, dt * 10);
@@ -702,6 +757,8 @@ function animate(now) {
       model.tailPivot.rotation.y = Math.sin(now / 1000 * 3 + entity.legPhase) * 0.4;
     }
   }
+
+  resolveOverlaps(entityList);
 
   renderer.render(scene, camera);
   requestAnimationFrame(animate);
