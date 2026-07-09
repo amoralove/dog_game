@@ -359,11 +359,21 @@ function spawnEntity(dog, { atGate } = {}) {
   const baseScale = sizeScaleFor(dog.id);
   model.root.scale.setScalar(atGate ? 0.05 : baseScale);
 
+  const firstTarget = randomTarget();
+  // Face the first target immediately instead of defaulting to 0° —
+  // otherwise a freshly spawned dog visibly turns from facing the
+  // wrong way before its first step.
+  const toFirst = firstTarget.clone().sub(startPos);
+  if (toFirst.lengthSq() > 1e-6) {
+    toFirst.normalize();
+    model.root.rotation.y = Math.atan2(-toFirst.x, -toFirst.z);
+  }
+
   const entity = {
     dog,
     model,
     baseScale,
-    target: atGate ? randomTarget() : randomTarget(),
+    target: firstTarget,
     speed: 1.1 + Math.random() * 0.5,
     pauseUntil: 0,
     legPhase: Math.random() * Math.PI * 2,
@@ -545,7 +555,7 @@ function animate(now) {
       const targetAngle = Math.atan2(-toTarget.x, -toTarget.z);
       let da = targetAngle - model.root.rotation.y;
       da = Math.atan2(Math.sin(da), Math.cos(da));
-      model.root.rotation.y += da * Math.min(1, dt * 6);
+      model.root.rotation.y += da * Math.min(1, dt * 10);
     }
 
     const walkT = now / 1000 * WALK_FREQ + entity.legPhase;
