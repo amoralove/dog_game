@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wescue Dog Park</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <header class="topbar">
+    <div class="brand">🐾 Wescue Dog Park</div>
+    <div class="stats">
+      <span id="dogCount">0</span> dogs playing &middot;
+      <span id="petCount">0</span> pets given today
+    </div>
+    <button id="addDogBtn" class="primary-btn">+ Post a Shelter Dog</button>
+  </header>
+
+  <main class="park" id="park">
+    <div class="pond"></div>
+    <div class="tree tree-1"></div>
+    <div class="tree tree-2"></div>
+    <div class="tree tree-3"></div>
+    <div class="bush bush-1"></div>
+    <div class="bush bush-2"></div>
+    <div class="gate" id="gate">🚪</div>
+    <!-- dogs get injected here -->
+  </main>
+
+  <p class="hint">Every dog here represents a real rescue on Wescue. Click a dog to say hi — or post one yourself to see it join the park.</p>
+
+  <!-- Dog info card -->
+  <div class="modal-overlay" id="dogModalOverlay">
+    <div class="modal dog-card">
+      <button class="close-btn" data-close>&times;</button>
+      <div class="dog-card-avatar" id="cardAvatar"></div>
+      <h2 id="cardName"></h2>
+      <p class="dog-card-meta" id="cardMeta"></p>
+      <p class="dog-card-bio" id="cardBio"></p>
+      <p class="dog-card-shelter">📍 <span id="cardShelter"></span></p>
+      <div class="dog-card-actions">
+        <button class="primary-btn" id="petBtn">🖐️ Pet</button>
+        <a class="primary-btn adopt-btn" id="cardAdoptLink" target="_blank" rel="noopener">🏡 Meet on Wescue</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add dog form -->
+  <div class="modal-overlay" id="formModalOverlay">
+    <div class="modal">
+      <button class="close-btn" data-close>&times;</button>
+      <h2>Post a dog to the park</h2>
+      <p class="form-sub">Simulates a shelter listing a real dog — it'll walk right in.</p>
+      <form id="addDogForm">
+        <label>Name
+          <input type="text" id="fName" required maxlength="24" placeholder="Biscuit">
+        </label>
+        <label>Breed
+          <input type="text" id="fBreed" required maxlength="30" placeholder="Terrier mix">
+        </label>
+        <label>Age
+          <input type="text" id="fAge" required maxlength="16" placeholder="2 years">
+        </label>
+        <label>Look
+          <select id="fEmoji">
+            <option value="🐕">Medium dog 🐕</option>
+            <option value="🐶">Puppy face 🐶</option>
+            <option value="🐩">Curly-coated 🐩</option>
+            <option value="🦮">Big & steady 🦮</option>
+            <option value="🐕‍🦺">Working breed 🐕‍🦺</option>
+          </select>
+        </label>
+        <label>Shelter name
+          <input type="text" id="fShelter" required maxlength="40" placeholder="Second Chance Rescue">
+        </label>
+        <label>Short bio
+          <textarea id="fBio" maxlength="140" placeholder="Loves belly rubs and long naps in sunbeams."></textarea>
+        </label>
+        <label>Adoption link (optional)
+          <input type="url" id="fUrl" placeholder="https://wescue.com/dogs/biscuit">
+        </label>
+        <button type="submit" class="primary-btn full-width">🐾 Post &amp; Release into Park</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
