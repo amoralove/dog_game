@@ -677,9 +677,9 @@ let lastTime = performance.now();
 // (blended into the movement/facing direction) plus a hard pairwise
 // position correction after everyone's moved, so dogs slide around each
 // other instead of clipping through.
-const AVOID_RADIUS = 0.9;
-const AVOID_WEIGHT = 1.3;
-const MIN_SEPARATION = 0.5;
+const AVOID_RADIUS = 1.3;
+const AVOID_WEIGHT = 1.5;
+const MIN_SEPARATION = 0.85;
 
 function steeringPush(entity, allEntities) {
   const pos = entity.model.root.position;
