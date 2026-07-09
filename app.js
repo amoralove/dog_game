@@ -89,7 +89,7 @@ function showToast(msg) {
 // ============================================================
 
 const BOUNDS = { x: 8.5, z: 5 }; // half-extents of the walkable area
-const PIXEL_SCALE = 3.3;
+const PIXEL_SCALE = 2.6;
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0xcdeffd);
