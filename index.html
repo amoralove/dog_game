@@ -5,6 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Wescue Dog Park</title>
 <link rel="stylesheet" href="style.css">
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.164.1/build/three.module.js"
+  }
+}
+</script>
 </head>
 <body>
 
@@ -18,14 +25,8 @@
   </header>
 
   <main class="park" id="park">
-    <div class="pond"></div>
-    <div class="tree tree-1"></div>
-    <div class="tree tree-2"></div>
-    <div class="tree tree-3"></div>
-    <div class="bush bush-1"></div>
-    <div class="bush bush-2"></div>
-    <div class="gate" id="gate">🚪</div>
-    <!-- dogs get injected here -->
+    <canvas id="parkCanvas"></canvas>
+    <!-- floating hearts get injected here, positioned above the 3D dogs -->
   </main>
 
   <p class="hint">Every dog here represents a real rescue on Wescue. Click a dog to say hi — or post one yourself to see it join the park.</p>
@@ -87,6 +88,6 @@
 
   <div class="toast" id="toast"></div>
 
-  <script src="app.js"></script>
+  <script type="module" src="app.js"></script>
 </body>
 </html>

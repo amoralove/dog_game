@@ -84,86 +84,21 @@ body {
   margin: 0 auto;
   width: min(94vw, 1000px);
   height: 480px;
-  background: repeating-linear-gradient(
-    135deg,
-    var(--grass-1) 0px,
-    var(--grass-1) 40px,
-    var(--grass-2) 40px,
-    var(--grass-2) 80px
-  );
+  background: #6cb843;
   border: 8px solid var(--wood);
   border-radius: 18px;
   overflow: hidden;
   box-shadow: inset 0 0 40px rgba(0,0,0,0.15), 0 10px 24px rgba(0,0,0,0.15);
-}
-
-.pond {
-  position: absolute;
-  bottom: 30px;
-  right: 40px;
-  width: 160px;
-  height: 90px;
-  background: var(--pond);
-  border-radius: 50%;
-  box-shadow: inset 0 0 20px rgba(0,60,80,0.3), 0 0 0 6px #d8c39a;
-}
-
-.tree, .bush {
-  position: absolute;
-  font-size: 2.6rem;
-  filter: drop-shadow(0 4px 3px rgba(0,0,0,0.25));
-  user-select: none;
-}
-.tree::before { content: "🌳"; }
-.bush::before { content: "🌳"; font-size: 1.6rem; }
-
-.tree-1 { top: 20px; left: 30px; }
-.tree-2 { top: 10px; right: 120px; font-size: 3.2rem; }
-.tree-3 { bottom: 10px; left: 60%; }
-.bush-1 { top: 60px; left: 45%; }
-.bush-2 { bottom: 40px; left: 10%; }
-
-.gate {
-  position: absolute;
-  top: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: 2rem;
-  background: var(--wood);
-  padding: 4px 14px 10px;
-  border-radius: 0 0 12px 12px;
-  color: white;
-}
-
-.dog {
-  position: absolute;
-  font-size: 2.1rem;
-  line-height: 1;
   cursor: pointer;
-  user-select: none;
-  transition: left 2.2s linear, top 2.2s linear, transform 0.3s ease;
-  filter: drop-shadow(0 3px 2px rgba(0,0,0,0.3));
-  animation: bob 0.5s infinite ease-in-out;
-  z-index: 5;
 }
 
-.dog:hover { transform: scale(1.25); z-index: 10; }
-
-.dog.facing-left { transform: scaleX(-1); }
-.dog.facing-left:hover { transform: scaleX(-1) scale(1.25); }
-
-.dog.spawning {
-  animation: spawnIn 0.6s ease-out, bob 0.5s infinite ease-in-out 0.6s;
-}
-
-@keyframes bob {
-  0%, 100% { margin-top: 0; }
-  50% { margin-top: -4px; }
-}
-
-@keyframes spawnIn {
-  from { opacity: 0; transform: scale(0.2); }
-  to { opacity: 1; transform: scale(1); }
+#parkCanvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: crisp-edges;
 }
 
 .heart-pop {
