@@ -19,13 +19,31 @@ const SEED_DOGS = [
     url: "https://example.com/dogs/duke" },
 ];
 
-// Coat color per "look" — drives the voxel dog's material color.
-const EMOJI_COLOR = {
-  "🐕": 0xc9975b,
-  "🐶": 0xe0b467,
-  "🐩": 0xf2ede1,
-  "🦮": 0x4a3527,
-  "🐕‍🦺": 0x2b2b2b,
+// Shape + color profile per "look" — each breed archetype gets its own
+// proportions (leg length, body size, head size, ear style) on top of
+// the shared template, so different breeds are visually distinct while
+// still built from the same parts and sharing the same accent colors.
+const LOOK_PROFILES = {
+  "🐕": { // Medium dog / terrier — the baseline proportions
+    coat: 0xc9975b, legMul: 1, bodyLenMul: 1, bodyWidMul: 1, bodyHeightMul: 1,
+    headMul: 1, earStyle: "perked", furry: false, sizeMul: 1,
+  },
+  "🐶": { // Puppy face / toy breed — big head, short legs, small round ears
+    coat: 0xe0b467, legMul: 0.72, bodyLenMul: 0.82, bodyWidMul: 0.85, bodyHeightMul: 0.85,
+    headMul: 1.28, earStyle: "small-round", furry: false, sizeMul: 0.85,
+  },
+  "🐩": { // Curly-coated / poodle — fluffy poofs, longer legs
+    coat: 0xf2ede1, legMul: 1.15, bodyLenMul: 0.95, bodyWidMul: 0.9, bodyHeightMul: 0.95,
+    headMul: 1, earStyle: "floppy-small", furry: true, sizeMul: 1,
+  },
+  "🦮": { // Big & steady / labrador-like — floppy ears, sturdy build
+    coat: 0x4a3527, legMul: 1.1, bodyLenMul: 1.15, bodyWidMul: 1.15, bodyHeightMul: 1.1,
+    headMul: 1.05, earStyle: "floppy-large", furry: false, sizeMul: 1.1,
+  },
+  "🐕‍🦺": { // Working breed / shepherd-like — upright ears, lean and long
+    coat: 0x2b2b2b, legMul: 1.2, bodyLenMul: 1.1, bodyWidMul: 0.92, bodyHeightMul: 0.95,
+    headMul: 0.95, earStyle: "perked-large", furry: false, sizeMul: 1.05,
+  },
 };
 
 const STORAGE_KEY = "wescue-dog-park-dogs";
@@ -235,8 +253,37 @@ function sizeScaleFor(dogId) {
   return 0.92 + (hashString(dogId) % 1000) / 1000 * 0.26;
 }
 
-function buildDogMesh(coatHex) {
+// Ear shape/hinge presets. Each ear is a small pivot hinged at the top
+// (near the skull) with the ear box hanging below it, so rotating the
+// pivot reads as "perked up" vs. "flopped down" rather than just a
+// resized box.
+const EAR_STYLES = {
+  "small-round": { w: 0.09, h: 0.11, hingeY: 0.24, hingeX: 0.15, tiltZ: 0.15, tiltX: 0 },
+  "floppy-small": { w: 0.1, h: 0.24, hingeY: 0.27, hingeX: 0.18, tiltZ: 0.55, tiltX: 0.25 },
+  "floppy-large": { w: 0.13, h: 0.3, hingeY: 0.29, hingeX: 0.2, tiltZ: 0.65, tiltX: 0.3 },
+  "perked-large": { w: 0.12, h: 0.28, hingeY: 0.26, hingeX: 0.19, tiltZ: 0.12, tiltX: -0.05 },
+  "perked": { w: 0.11, h: 0.22, hingeY: 0.23, hingeX: 0.18, tiltZ: 0.25, tiltX: -0.05 },
+};
+
+function addEars(head, dark, style) {
+  const c = EAR_STYLES[style] || EAR_STYLES.perked;
+  const earGeo = new THREE.BoxGeometry(c.w, c.h, 0.06);
+  [-1, 1].forEach((side) => {
+    const pivot = new THREE.Group();
+    pivot.position.set(side * c.hingeX, c.hingeY, 0.03);
+    pivot.rotation.z = side * c.tiltZ;
+    pivot.rotation.x = c.tiltX;
+    const ear = new THREE.Mesh(earGeo, dark);
+    ear.position.y = -c.h / 2;
+    ear.castShadow = true;
+    pivot.add(ear);
+    head.add(pivot);
+  });
+}
+
+function buildDogMesh(profile) {
   const root = new THREE.Group();
+  const coatHex = profile.coat;
   const coat = new THREE.MeshLambertMaterial({ color: coatHex, flatShading: true });
   const dark = new THREE.MeshLambertMaterial({ color: shade(coatHex, 0.55), flatShading: true });
   const pawMat = new THREE.MeshLambertMaterial({ color: PAW_COLOR, flatShading: true });
@@ -245,30 +292,33 @@ function buildDogMesh(coatHex) {
   const eyeMat = new THREE.MeshBasicMaterial({ color: 0x1c1712 });
   const eyeWhiteMat = new THREE.MeshBasicMaterial({ color: 0xf5f0e6 });
 
-  const legLength = 0.32;
+  const legLength = 0.32 * profile.legMul;
   const bodyY = legLength + 0.18;
+  const bw = profile.bodyWidMul, bh = profile.bodyHeightMul, bl = profile.bodyLenMul;
 
   // Torso: a slightly larger chest box + a tapered rear box reads more
   // dog-like than a single rectangular block.
-  const chest = new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.38, 0.5), coat);
-  chest.position.set(0, bodyY + 0.01, -0.22);
+  const chest = new THREE.Mesh(new THREE.BoxGeometry(0.52 * bw, 0.38 * bh, 0.5 * bl), coat);
+  chest.position.set(0, bodyY + 0.01, -0.22 * bl);
   chest.castShadow = true;
   root.add(chest);
 
-  const rear = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.34, 0.46), coat);
-  rear.position.set(0, bodyY, 0.24);
+  const rear = new THREE.Mesh(new THREE.BoxGeometry(0.46 * bw, 0.34 * bh, 0.46 * bl), coat);
+  rear.position.set(0, bodyY, 0.24 * bl);
   rear.castShadow = true;
   root.add(rear);
 
-  const belly = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.1, 0.7), dark);
+  const belly = new THREE.Mesh(new THREE.BoxGeometry(0.4 * bw, 0.1, 0.7 * bl), dark);
   belly.position.set(0, bodyY - 0.19, 0);
   root.add(belly);
 
   // Head is oversized relative to the body (cute-critter proportions)
   // and the snout juts out well past the chest — an unambiguous "front"
   // even at a glance, which also makes travel direction easy to read.
+  // The whole group is scaled uniformly per breed via headMul.
   const head = new THREE.Group();
-  head.position.set(0, bodyY + 0.32, -0.58);
+  head.position.set(0, bodyY + 0.32, -(0.22 * bl + 0.36));
+  head.scale.setScalar(profile.headMul);
   const headBox = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.38, 0.4), coat);
   headBox.castShadow = true;
   head.add(headBox);
@@ -293,30 +343,37 @@ function buildDogMesh(coatHex) {
     head.add(white, pupil);
   });
 
-  const earGeo = new THREE.BoxGeometry(0.11, 0.22, 0.06);
-  const earL = new THREE.Mesh(earGeo, dark);
-  earL.position.set(-0.18, 0.25, 0.03);
-  earL.rotation.z = 0.25;
-  const earR = earL.clone();
-  earR.position.x = 0.18;
-  earR.rotation.z = -0.25;
-  head.add(earL, earR);
+  addEars(head, dark, profile.earStyle);
+
+  if (profile.furry) {
+    // Poodle-style poofs: a small cluster of coat-colored cubes on top
+    // of the head for a fluffy silhouette.
+    const poofGeo = new THREE.BoxGeometry(0.15, 0.15, 0.15);
+    [[0, 0.24, -0.02], [-0.1, 0.19, -0.11], [0.1, 0.19, -0.11], [0, 0.19, -0.22]].forEach(([x, y, z]) => {
+      const poof = new THREE.Mesh(poofGeo, coat);
+      poof.position.set(x, y, z);
+      poof.castShadow = true;
+      head.add(poof);
+    });
+  }
   root.add(head);
 
   // Collar: a bright ring at the base of the neck, always the same
   // color across every dog — the one shared "brand" detail.
-  const collar = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.09, 0.46), collarMat);
-  collar.position.set(0, bodyY + 0.19, -0.42);
+  const collar = new THREE.Mesh(new THREE.BoxGeometry(0.42 * bw, 0.09, 0.46), collarMat);
+  collar.position.set(0, bodyY + 0.19, -0.42 * bl);
   root.add(collar);
 
   // Tail gets a light-colored tip — paired with the oversized head/snout,
-  // this makes front vs. back unambiguous even at a glance.
+  // this makes front vs. back unambiguous even at a glance. Poodle tails
+  // get a bigger pom-pom tip to match the fluffy head.
   const tailPivot = new THREE.Group();
-  tailPivot.position.set(0, bodyY + 0.14, 0.45);
+  tailPivot.position.set(0, bodyY + 0.14, 0.45 * bl);
   const tail = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 0.4), dark);
   tail.position.z = 0.2;
   tail.rotation.x = -0.5;
-  const tailTip = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.13, 0.13), pawMat);
+  const tipSize = profile.furry ? 0.19 : 0.13;
+  const tailTip = new THREE.Mesh(new THREE.BoxGeometry(tipSize, tipSize, tipSize), profile.furry ? coat : pawMat);
   tailTip.position.z = 0.24;
   tail.add(tailTip);
   tailPivot.add(tail);
@@ -325,8 +382,8 @@ function buildDogMesh(coatHex) {
   const legGeo = new THREE.BoxGeometry(0.13, legLength * 0.7, 0.13);
   const pawGeo = new THREE.BoxGeometry(0.15, legLength * 0.3, 0.16);
   const legPositions = [
-    [-0.17, -0.32], [0.17, -0.32], // front L/R
-    [-0.17, 0.32], [0.17, 0.32],   // back L/R
+    [-0.17 * bw, -0.32 * bl], [0.17 * bw, -0.32 * bl], // front L/R
+    [-0.17 * bw, 0.32 * bl], [0.17 * bw, 0.32 * bl],   // back L/R
   ];
   const legPivots = legPositions.map(([lx, lz]) => {
     const pivot = new THREE.Group();
@@ -362,15 +419,15 @@ function randomTarget() {
 }
 
 function spawnEntity(dog, { atGate } = {}) {
-  const coatHex = EMOJI_COLOR[dog.emoji] ?? 0xc9975b;
-  const model = buildDogMesh(coatHex);
+  const profile = LOOK_PROFILES[dog.emoji] ?? LOOK_PROFILES["🐕"];
+  const model = buildDogMesh(profile);
   model.root.userData.dogId = dog.id;
   dogsGroup.add(model.root);
 
   const startPos = atGate ? SPAWN_POINT.clone() : randomTarget();
   model.root.position.copy(startPos);
 
-  const baseScale = sizeScaleFor(dog.id);
+  const baseScale = sizeScaleFor(dog.id) * profile.sizeMul;
   model.root.scale.setScalar(atGate ? 0.05 : baseScale);
 
   const firstTarget = randomTarget();
