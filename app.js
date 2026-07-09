@@ -71,7 +71,7 @@ function showToast(msg) {
 // ============================================================
 
 const BOUNDS = { x: 8.5, z: 5 }; // half-extents of the walkable area
-const PIXEL_SCALE = 4.5;
+const PIXEL_SCALE = 3.3;
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0xcdeffd);
@@ -203,7 +203,17 @@ const SPAWN_POINT = new THREE.Vector3(0, 0, -BOUNDS.z);
 
 // ============================================================
 // Voxel dog model
+//
+// One shared template for every dog, regardless of breed — only the
+// coat color (from the "look" picker) and a small per-dog size
+// variation change. Paws and the collar always use the same two
+// accent colors so dogs read as one consistent species/design no
+// matter what breed text a shelter listing has.
 // ============================================================
+
+const PAW_COLOR = 0xf3e9d6;
+const COLLAR_COLOR = 0xff8a3d; // matches the site's accent orange
+const NOSE_COLOR = 0x1c1712;
 
 function shade(hex, amount) {
   const c = new THREE.Color(hex);
@@ -211,21 +221,50 @@ function shade(hex, amount) {
   return c;
 }
 
+function hashString(str) {
+  let h = 0;
+  for (let i = 0; i < str.length; i++) {
+    h = (h * 31 + str.charCodeAt(i)) >>> 0;
+  }
+  return h;
+}
+
+// Deterministic per-dog scale (0.92–1.18) so the same dog looks the
+// same across reloads, without needing breed-specific geometry.
+function sizeScaleFor(dogId) {
+  return 0.92 + (hashString(dogId) % 1000) / 1000 * 0.26;
+}
+
 function buildDogMesh(coatHex) {
   const root = new THREE.Group();
   const coat = new THREE.MeshLambertMaterial({ color: coatHex, flatShading: true });
   const dark = new THREE.MeshLambertMaterial({ color: shade(coatHex, 0.55), flatShading: true });
+  const pawMat = new THREE.MeshLambertMaterial({ color: PAW_COLOR, flatShading: true });
+  const collarMat = new THREE.MeshLambertMaterial({ color: COLLAR_COLOR, flatShading: true });
+  const noseMat = new THREE.MeshBasicMaterial({ color: NOSE_COLOR });
+  const eyeMat = new THREE.MeshBasicMaterial({ color: 0x1c1712 });
 
   const legLength = 0.32;
   const bodyY = legLength + 0.18;
 
-  const body = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.36, 0.9), coat);
-  body.position.y = bodyY;
-  body.castShadow = true;
-  root.add(body);
+  // Torso: a slightly larger chest box + a tapered rear box reads more
+  // dog-like than a single rectangular block.
+  const chest = new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.38, 0.5), coat);
+  chest.position.set(0, bodyY + 0.01, -0.22);
+  chest.castShadow = true;
+  root.add(chest);
+
+  const rear = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.34, 0.46), coat);
+  rear.position.set(0, bodyY, 0.24);
+  rear.castShadow = true;
+  root.add(rear);
+
+  const belly = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.1, 0.7), dark);
+  belly.position.set(0, bodyY - 0.19, 0);
+  root.add(belly);
 
   const head = new THREE.Group();
-  head.position.set(0, bodyY + 0.28, -0.55);
+  head.position.set(0, bodyY + 0.3, -0.56);
   const headBox = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.32, 0.34), coat);
   headBox.castShadow = true;
   head.add(headBox);
@@ -233,6 +272,17 @@ function buildDogMesh(coatHex) {
   const snout = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.16, 0.24), dark);
   snout.position.set(0, -0.08, -0.28);
   head.add(snout);
+
+  const nose = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.08, 0.05), noseMat);
+  nose.position.set(0, -0.07, -0.4);
+  head.add(nose);
+
+  const eyeGeo = new THREE.BoxGeometry(0.05, 0.05, 0.03);
+  const eyeL = new THREE.Mesh(eyeGeo, eyeMat);
+  eyeL.position.set(-0.1, 0.05, -0.17);
+  const eyeR = eyeL.clone();
+  eyeR.position.x = 0.1;
+  head.add(eyeL, eyeR);
 
   const earGeo = new THREE.BoxGeometry(0.1, 0.2, 0.06);
   const earL = new THREE.Mesh(earGeo, dark);
@@ -244,6 +294,12 @@ function buildDogMesh(coatHex) {
   head.add(earL, earR);
   root.add(head);
 
+  // Collar: a bright ring at the base of the neck, always the same
+  // color across every dog — the one shared "brand" detail.
+  const collar = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.09, 0.46), collarMat);
+  collar.position.set(0, bodyY + 0.19, -0.42);
+  root.add(collar);
+
   const tailPivot = new THREE.Group();
   tailPivot.position.set(0, bodyY + 0.14, 0.45);
   const tail = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 0.4), dark);
@@ -252,7 +308,8 @@ function buildDogMesh(coatHex) {
   tailPivot.add(tail);
   root.add(tailPivot);
 
-  const legGeo = new THREE.BoxGeometry(0.13, legLength, 0.13);
+  const legGeo = new THREE.BoxGeometry(0.13, legLength * 0.7, 0.13);
+  const pawGeo = new THREE.BoxGeometry(0.15, legLength * 0.3, 0.16);
   const legPositions = [
     [-0.17, -0.32], [0.17, -0.32], // front L/R
     [-0.17, 0.32], [0.17, 0.32],   // back L/R
@@ -261,9 +318,12 @@ function buildDogMesh(coatHex) {
     const pivot = new THREE.Group();
     pivot.position.set(lx, legLength + 0.16, lz);
     const leg = new THREE.Mesh(legGeo, dark);
-    leg.position.y = -legLength / 2;
+    leg.position.y = -legLength * 0.35;
     leg.castShadow = true;
-    pivot.add(leg);
+    const paw = new THREE.Mesh(pawGeo, pawMat);
+    paw.position.y = -legLength * 0.75;
+    paw.castShadow = true;
+    pivot.add(leg, paw);
     root.add(pivot);
     return pivot;
   });
@@ -296,14 +356,17 @@ function spawnEntity(dog, { atGate } = {}) {
   const startPos = atGate ? SPAWN_POINT.clone() : randomTarget();
   model.root.position.copy(startPos);
 
+  const baseScale = sizeScaleFor(dog.id);
+  model.root.scale.setScalar(atGate ? 0.05 : baseScale);
+
   const entity = {
     dog,
     model,
+    baseScale,
     target: atGate ? randomTarget() : randomTarget(),
     speed: 1.1 + Math.random() * 0.5,
     pauseUntil: 0,
     legPhase: Math.random() * Math.PI * 2,
-    scaleIn: atGate ? 0 : 1,
   };
   entities.set(dog.id, entity);
 
@@ -461,7 +524,7 @@ function animate(now) {
 
     if (entity._growUntil) {
       const t = Math.min(1, 1 - (entity._growUntil - now) / 500);
-      model.root.scale.setScalar(Math.max(0.05, t));
+      model.root.scale.setScalar(Math.max(0.05, t * entity.baseScale));
       if (t >= 1) delete entity._growUntil;
     }
 
@@ -478,7 +541,8 @@ function animate(now) {
       moving = true;
       toTarget.normalize();
       pos.addScaledVector(toTarget, entity.speed * dt);
-      const targetAngle = Math.atan2(toTarget.x, toTarget.z);
+      // Dog's local forward is -Z; face rotation.y so that axis points at the target.
+      const targetAngle = Math.atan2(-toTarget.x, -toTarget.z);
       let da = targetAngle - model.root.rotation.y;
       da = Math.atan2(Math.sin(da), Math.cos(da));
       model.root.rotation.y += da * Math.min(1, dt * 6);
