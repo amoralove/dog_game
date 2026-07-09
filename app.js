@@ -243,6 +243,7 @@ function buildDogMesh(coatHex) {
   const collarMat = new THREE.MeshLambertMaterial({ color: COLLAR_COLOR, flatShading: true });
   const noseMat = new THREE.MeshBasicMaterial({ color: NOSE_COLOR });
   const eyeMat = new THREE.MeshBasicMaterial({ color: 0x1c1712 });
+  const eyeWhiteMat = new THREE.MeshBasicMaterial({ color: 0xf5f0e6 });
 
   const legLength = 0.32;
   const bodyY = legLength + 0.18;
@@ -263,33 +264,41 @@ function buildDogMesh(coatHex) {
   belly.position.set(0, bodyY - 0.19, 0);
   root.add(belly);
 
+  // Head is oversized relative to the body (cute-critter proportions)
+  // and the snout juts out well past the chest — an unambiguous "front"
+  // even at a glance, which also makes travel direction easy to read.
   const head = new THREE.Group();
-  head.position.set(0, bodyY + 0.3, -0.56);
-  const headBox = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.32, 0.34), coat);
+  head.position.set(0, bodyY + 0.32, -0.58);
+  const headBox = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.38, 0.4), coat);
   headBox.castShadow = true;
   head.add(headBox);
 
-  const snout = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.16, 0.24), dark);
-  snout.position.set(0, -0.08, -0.28);
+  const snout = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.17, 0.32), dark);
+  snout.position.set(0, -0.09, -0.34);
   head.add(snout);
 
-  const nose = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.08, 0.05), noseMat);
-  nose.position.set(0, -0.07, -0.4);
+  const nose = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.09, 0.06), noseMat);
+  nose.position.set(0, -0.08, -0.49);
   head.add(nose);
 
+  // Each eye is a light backing plate with a darker pupil in front, so
+  // eyes stay readable even on the darkest coat colors.
+  const eyeWhiteGeo = new THREE.BoxGeometry(0.09, 0.08, 0.02);
   const eyeGeo = new THREE.BoxGeometry(0.05, 0.05, 0.03);
-  const eyeL = new THREE.Mesh(eyeGeo, eyeMat);
-  eyeL.position.set(-0.1, 0.05, -0.17);
-  const eyeR = eyeL.clone();
-  eyeR.position.x = 0.1;
-  head.add(eyeL, eyeR);
+  [-0.12, 0.12].forEach((x) => {
+    const white = new THREE.Mesh(eyeWhiteGeo, eyeWhiteMat);
+    white.position.set(x, 0.06, -0.185);
+    const pupil = new THREE.Mesh(eyeGeo, eyeMat);
+    pupil.position.set(x, 0.05, -0.2);
+    head.add(white, pupil);
+  });
 
-  const earGeo = new THREE.BoxGeometry(0.1, 0.2, 0.06);
+  const earGeo = new THREE.BoxGeometry(0.11, 0.22, 0.06);
   const earL = new THREE.Mesh(earGeo, dark);
-  earL.position.set(-0.16, 0.22, 0.02);
+  earL.position.set(-0.18, 0.25, 0.03);
   earL.rotation.z = 0.25;
   const earR = earL.clone();
-  earR.position.x = 0.16;
+  earR.position.x = 0.18;
   earR.rotation.z = -0.25;
   head.add(earL, earR);
   root.add(head);
@@ -300,11 +309,16 @@ function buildDogMesh(coatHex) {
   collar.position.set(0, bodyY + 0.19, -0.42);
   root.add(collar);
 
+  // Tail gets a light-colored tip — paired with the oversized head/snout,
+  // this makes front vs. back unambiguous even at a glance.
   const tailPivot = new THREE.Group();
   tailPivot.position.set(0, bodyY + 0.14, 0.45);
   const tail = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 0.4), dark);
   tail.position.z = 0.2;
   tail.rotation.x = -0.5;
+  const tailTip = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.13, 0.13), pawMat);
+  tailTip.position.z = 0.24;
+  tail.add(tailTip);
   tailPivot.add(tail);
   root.add(tailPivot);
 
