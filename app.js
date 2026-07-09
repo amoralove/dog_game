@@ -131,6 +131,13 @@ function showToast(msg) {
 const BOUNDS = { x: 8.5, z: 5 }; // half-extents of the walkable area
 const PIXEL_SCALE = 2.6;
 
+// Static scene props dogs should steer around and never end up inside —
+// trees, fence posts, the pond, the gate. Populated as each is built below.
+const OBSTACLES = []; // { x, z, radius }
+function addObstacle(x, z, radius) {
+  OBSTACLES.push({ x, z, radius });
+}
+
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0xcdeffd);
 scene.fog = new THREE.Fog(0xcdeffd, 18, 34);
@@ -193,6 +200,7 @@ const pond = new THREE.Mesh(
 pond.rotation.x = -Math.PI / 2;
 pond.position.set(BOUNDS.x - 2.2, 0.01, BOUNDS.z - 1.6);
 scene.add(pond);
+addObstacle(pond.position.x, pond.position.z, 1.6 + 0.15);
 
 // --- Trees ---
 function makeTree(x, z, scale = 1) {
@@ -213,6 +221,7 @@ function makeTree(x, z, scale = 1) {
   group.position.set(x, 0, z);
   group.scale.setScalar(scale);
   scene.add(group);
+  addObstacle(x, z, 0.4 * scale);
 }
 
 makeTree(-BOUNDS.x + 1.2, -BOUNDS.z + 1, 1.1);
@@ -229,6 +238,7 @@ function makePost(x, z) {
   post.position.set(x, 0.35, z);
   post.castShadow = true;
   scene.add(post);
+  addObstacle(x, z, 0.16);
 }
 
 const POST_GAP = 1.4;
@@ -257,6 +267,8 @@ const SPAWN_POINT = new THREE.Vector3(0, 0, -BOUNDS.z);
   gateGroup.add(beam, postL, postR);
   gateGroup.position.set(0, 0, -BOUNDS.z);
   scene.add(gateGroup);
+  addObstacle(-0.75, -BOUNDS.z, 0.16);
+  addObstacle(0.75, -BOUNDS.z, 0.16);
 }
 
 // ============================================================
@@ -467,11 +479,20 @@ scene.add(dogsGroup);
 const entities = new Map(); // id -> entity
 
 function randomTarget() {
-  return new THREE.Vector3(
-    (Math.random() * 2 - 1) * (BOUNDS.x - 0.6),
-    0,
-    (Math.random() * 2 - 1) * (BOUNDS.z - 0.6)
-  );
+  // Resample a few times to avoid handing out a target that's inside (or
+  // right next to) an obstacle — otherwise a dog can get stuck endlessly
+  // pushing against a tree/pond it's trying to walk into.
+  for (let attempt = 0; attempt < 8; attempt++) {
+    const x = (Math.random() * 2 - 1) * (BOUNDS.x - 0.6);
+    const z = (Math.random() * 2 - 1) * (BOUNDS.z - 0.6);
+    const blocked = OBSTACLES.some((ob) => {
+      const dx = x - ob.x, dz = z - ob.z;
+      const clear = ob.radius + 0.5;
+      return dx * dx + dz * dz < clear * clear;
+    });
+    if (!blocked) return new THREE.Vector3(x, 0, z);
+  }
+  return new THREE.Vector3(0, 0, 0); // fallback: park center is always clear
 }
 
 function spawnEntity(dog, { atGate } = {}) {
@@ -703,6 +724,49 @@ function resolveOverlaps(allEntities) {
   }
 }
 
+// Same two-stage idea (soft steering + hard correction) but against the
+// static scene props — trees, fence posts, the pond, the gate — so dogs
+// don't walk through them either. Obstacles never move, so correction
+// only pushes the dog.
+const OBSTACLE_AVOID_MARGIN = 0.55;
+const OBSTACLE_AVOID_WEIGHT = 1.8;
+const OBSTACLE_DOG_RADIUS = 0.22;
+
+function obstaclePush(entity) {
+  const pos = entity.model.root.position;
+  const push = new THREE.Vector3();
+  for (const ob of OBSTACLES) {
+    const dx = pos.x - ob.x;
+    const dz = pos.z - ob.z;
+    const distSq = dx * dx + dz * dz;
+    const detectRadius = ob.radius + OBSTACLE_AVOID_MARGIN;
+    if (distSq < detectRadius * detectRadius && distSq > 1e-6) {
+      const dist = Math.sqrt(distSq);
+      const strength = (detectRadius - dist) / detectRadius;
+      push.x += (dx / dist) * strength;
+      push.z += (dz / dist) * strength;
+    }
+  }
+  return push;
+}
+
+function resolveObstacleOverlaps(allEntities) {
+  for (const e of allEntities) {
+    const p = e.model.root.position;
+    for (const ob of OBSTACLES) {
+      const dx = p.x - ob.x, dz = p.z - ob.z;
+      const distSq = dx * dx + dz * dz;
+      const minDist = ob.radius + OBSTACLE_DOG_RADIUS * e.baseScale;
+      if (distSq < minDist * minDist) {
+        const dist = Math.sqrt(distSq) || 0.001;
+        const push = minDist - dist;
+        p.x += (dx / dist) * push;
+        p.z += (dz / dist) * push;
+      }
+    }
+  }
+}
+
 function animate(now) {
   const dt = Math.min((now - lastTime) / 1000, 0.1);
   lastTime = now;
@@ -731,7 +795,9 @@ function animate(now) {
     } else {
       moving = true;
       toTarget.normalize();
-      const desired = toTarget.clone().addScaledVector(steeringPush(entity, entityList), AVOID_WEIGHT);
+      const desired = toTarget.clone()
+        .addScaledVector(steeringPush(entity, entityList), AVOID_WEIGHT)
+        .addScaledVector(obstaclePush(entity), OBSTACLE_AVOID_WEIGHT);
       if (desired.lengthSq() > 1e-6) desired.normalize();
       pos.addScaledVector(desired, entity.speed * dt);
       // Dog's local forward is -Z; face rotation.y so that axis points at the (avoidance-adjusted) direction.
@@ -759,6 +825,7 @@ function animate(now) {
   }
 
   resolveOverlaps(entityList);
+  resolveObstacleOverlaps(entityList);
 
   renderer.render(scene, camera);
   requestAnimationFrame(animate);
