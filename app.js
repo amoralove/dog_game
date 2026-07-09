@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
 // --- Mock "shelter listings" seeded on first load ---
 const SEED_DOGS = [
@@ -26,25 +27,64 @@ const SEED_DOGS = [
 const LOOK_PROFILES = {
   "🐕": { // Medium dog / terrier — the baseline proportions
     coat: 0xc9975b, legMul: 1, bodyLenMul: 1, bodyWidMul: 1, bodyHeightMul: 1,
-    headMul: 1, earStyle: "perked", furry: false, sizeMul: 1,
+    headMul: 1, earStyle: "perked", furry: false, sizeMul: 1, modelFile: "terrier.glb",
   },
   "🐶": { // Puppy face / toy breed — big head, short legs, small round ears
     coat: 0xe0b467, legMul: 0.72, bodyLenMul: 0.82, bodyWidMul: 0.85, bodyHeightMul: 0.85,
-    headMul: 1.28, earStyle: "small-round", furry: false, sizeMul: 0.85,
+    headMul: 1.28, earStyle: "small-round", furry: false, sizeMul: 0.85, modelFile: "puppy.glb",
   },
   "🐩": { // Curly-coated / poodle — fluffy poofs, longer legs
     coat: 0xf2ede1, legMul: 1.15, bodyLenMul: 0.95, bodyWidMul: 0.9, bodyHeightMul: 0.95,
-    headMul: 1, earStyle: "floppy-small", furry: true, sizeMul: 1,
+    headMul: 1, earStyle: "floppy-small", furry: true, sizeMul: 1, modelFile: "poodle.glb",
   },
   "🦮": { // Big & steady / labrador-like — floppy ears, sturdy build
     coat: 0x4a3527, legMul: 1.1, bodyLenMul: 1.15, bodyWidMul: 1.15, bodyHeightMul: 1.1,
-    headMul: 1.05, earStyle: "floppy-large", furry: false, sizeMul: 1.1,
+    headMul: 1.05, earStyle: "floppy-large", furry: false, sizeMul: 1.1, modelFile: "labrador.glb",
   },
   "🐕‍🦺": { // Working breed / shepherd-like — upright ears, lean and long
     coat: 0x2b2b2b, legMul: 1.2, bodyLenMul: 1.1, bodyWidMul: 0.92, bodyHeightMul: 0.95,
-    headMul: 0.95, earStyle: "perked-large", furry: false, sizeMul: 1.05,
+    headMul: 0.95, earStyle: "perked-large", furry: false, sizeMul: 1.05, modelFile: "shepherd.glb",
   },
 };
+
+// ============================================================
+// Custom voxel models: drop a .glb per breed in models/<file> (see
+// models/README.md) and it replaces the procedural boxes for that
+// breed automatically. Missing files silently fall back to the
+// procedural build, so this works fine with zero .glb files present.
+//
+// Optional node names inside the .glb enable the same walk animation
+// as the procedural dogs — "head", "tail", "legFL", "legFR", "legBL",
+// "legBR". A model with none of these still gets root-level bobbing
+// and turning, just no per-limb swing.
+// ============================================================
+
+const MODEL_BASE_URL = "models/";
+const gltfLoader = new GLTFLoader();
+const modelTemplates = {}; // emoji -> THREE.Group template, or null if unavailable
+
+function loadModelTemplate(emoji, file) {
+  return new Promise((resolve) => {
+    gltfLoader.load(
+      MODEL_BASE_URL + file,
+      (gltf) => {
+        modelTemplates[emoji] = gltf.scene;
+        resolve();
+      },
+      undefined,
+      () => {
+        modelTemplates[emoji] = null; // no file yet (or failed to load) — use procedural fallback
+        resolve();
+      }
+    );
+  });
+}
+
+function preloadModels() {
+  return Promise.all(
+    Object.entries(LOOK_PROFILES).map(([emoji, profile]) => loadModelTemplate(emoji, profile.modelFile))
+  );
+}
 
 const STORAGE_KEY = "wescue-dog-park-dogs";
 const PET_KEY = "wescue-dog-park-pets";
@@ -402,6 +442,22 @@ function buildDogMesh(profile) {
   return { root, head, tailPivot, legPivots };
 }
 
+// Builds a dog from a preloaded .glb template instead of procedural boxes.
+// Looks for optional named nodes to drive the same walk animation as the
+// procedural dogs; anything not found is simply skipped when animating.
+function buildDogMeshFromTemplate(template) {
+  const root = template.clone(true);
+  root.traverse((obj) => {
+    if (obj.isMesh) obj.castShadow = true;
+  });
+  const head = root.getObjectByName("head") || null;
+  const tailPivot = root.getObjectByName("tail") || null;
+  const legPivots = ["legFL", "legFR", "legBL", "legBR"]
+    .map((name) => root.getObjectByName(name))
+    .filter(Boolean);
+  return { root, head, tailPivot, legPivots: legPivots.length === 4 ? legPivots : [] };
+}
+
 // ============================================================
 // Dog entities: model + movement + animation state
 // ============================================================
@@ -420,7 +476,8 @@ function randomTarget() {
 
 function spawnEntity(dog, { atGate } = {}) {
   const profile = LOOK_PROFILES[dog.emoji] ?? LOOK_PROFILES["🐕"];
-  const model = buildDogMesh(profile);
+  const template = modelTemplates[dog.emoji];
+  const model = template ? buildDogMeshFromTemplate(template) : buildDogMesh(profile);
   model.root.userData.dogId = dog.id;
   dogsGroup.add(model.root);
 
@@ -631,13 +688,19 @@ function animate(now) {
 
     const walkT = now / 1000 * WALK_FREQ + entity.legPhase;
     const swing = moving ? MAX_LEG_SWING : 0;
-    model.legPivots[0].rotation.x = Math.sin(walkT) * swing;
-    model.legPivots[3].rotation.x = Math.sin(walkT) * swing;
-    model.legPivots[1].rotation.x = Math.sin(walkT + Math.PI) * swing;
-    model.legPivots[2].rotation.x = Math.sin(walkT + Math.PI) * swing;
+    // Custom .glb models without the legFL/FR/BL/BR nodes just skip leg
+    // swing — they still get root-level bob/turn below.
+    if (model.legPivots.length === 4) {
+      model.legPivots[0].rotation.x = Math.sin(walkT) * swing;
+      model.legPivots[3].rotation.x = Math.sin(walkT) * swing;
+      model.legPivots[1].rotation.x = Math.sin(walkT + Math.PI) * swing;
+      model.legPivots[2].rotation.x = Math.sin(walkT + Math.PI) * swing;
+    }
 
     model.root.position.y = moving ? Math.abs(Math.sin(walkT)) * 0.05 : 0;
-    model.tailPivot.rotation.y = Math.sin(now / 1000 * 3 + entity.legPhase) * 0.4;
+    if (model.tailPivot) {
+      model.tailPivot.rotation.y = Math.sin(now / 1000 * 3 + entity.legPhase) * 0.4;
+    }
   }
 
   renderer.render(scene, camera);
@@ -645,6 +708,7 @@ function animate(now) {
 }
 
 // --- Init ---
+await preloadModels();
 saveDogs();
 renderAllDogs();
 requestAnimationFrame(animate);
