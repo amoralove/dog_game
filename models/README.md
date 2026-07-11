@@ -56,6 +56,25 @@ script. It always produces a static model (no leg articulation), since
 merged voxel art doesn't have separate movable parts — see the note below
 if you want animation instead.
 
+## Starting from the procedural terrier shape
+
+If you'd rather sculpt from the existing procedural dog than start blank,
+`voxelize_terrier.py` rasterizes the exact box geometry `buildDogMesh()`
+draws for the default "🐕 Medium dog" look (same positions, sizes, and
+colors, ear angles included) into a `.vox` file you can open directly in
+MagicaVoxel:
+
+```bash
+python3 models/voxelize_terrier.py terrier.vox
+```
+
+Useful as a base to reshape into a different breed (stretch it into a
+dachshund, shrink the legs, etc.) while keeping the proportions/parts
+this project already renders correctly, rather than starting from
+nothing. It's a one-way export (voxel grid, not editable box params) —
+regenerate from scratch if you want to tweak the *procedural* shape
+itself, don't hand-edit and expect it to sync back to app.js.
+
 ## Optional: rigging for the walk animation
 
 A static model works fine out of the box — it'll still bob and turn to
