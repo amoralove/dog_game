@@ -18,6 +18,9 @@ const SEED_DOGS = [
   { name: "Duke", breed: "Shepherd mix", age: "5 years", emoji: "🐕‍🦺",
     shelter: "Second Chance Rescue", bio: "A working dog looking for a job to do — and a couch to nap on after.",
     url: "https://example.com/dogs/duke" },
+  { name: "Noodle", breed: "Dachshund", age: "3 years", emoji: "🌭",
+    shelter: "Long & Low Rescue", bio: "All legs are optional when you've got this much enthusiasm.",
+    url: "https://example.com/dogs/noodle" },
 ];
 
 // Shape + color profile per "look" — each breed archetype gets its own
@@ -44,6 +47,11 @@ const LOOK_PROFILES = {
   "🐕‍🦺": { // Working breed / shepherd-like — upright ears, lean and long
     coat: 0x2b2b2b, legMul: 1.2, bodyLenMul: 1.1, bodyWidMul: 0.92, bodyHeightMul: 0.95,
     headMul: 0.95, earStyle: "perked-large", furry: false, sizeMul: 1.05, modelFile: "shepherd.glb",
+  },
+  "🌭": { // Dachshund — long low body, short legs (procedural fallback only;
+          // the real look comes from models/dachshund.glb)
+    coat: 0xa54c16, legMul: 0.55, bodyLenMul: 1.5, bodyWidMul: 0.85, bodyHeightMul: 0.8,
+    headMul: 0.9, earStyle: "floppy-small", furry: false, sizeMul: 1, modelFile: "dachshund.glb",
   },
 };
 
