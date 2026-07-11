@@ -21,6 +21,9 @@ const SEED_DOGS = [
   { name: "Noodle", breed: "Dachshund", age: "3 years", emoji: "🌭",
     shelter: "Long & Low Rescue", bio: "All legs are optional when you've got this much enthusiasm.",
     url: "https://example.com/dogs/noodle" },
+  { name: "Sunny", breed: "Golden Retriever", age: "2 years", emoji: "🦴",
+    shelter: "Second Chance Rescue", bio: "Will greet you like you've been gone for ten years.",
+    url: "https://example.com/dogs/sunny" },
 ];
 
 // Shape + color profile per "look" — each breed archetype gets its own
@@ -48,10 +51,16 @@ const LOOK_PROFILES = {
     coat: 0x2b2b2b, legMul: 1.2, bodyLenMul: 1.1, bodyWidMul: 0.92, bodyHeightMul: 0.95,
     headMul: 0.95, earStyle: "perked-large", furry: false, sizeMul: 1.05, modelFile: "shepherd.glb",
   },
-  "🌭": { // Dachshund — long low body, short legs (procedural fallback only;
-          // the real look comes from models/dachshund.glb)
-    coat: 0xa54c16, legMul: 0.55, bodyLenMul: 1.5, bodyWidMul: 0.85, bodyHeightMul: 0.8,
+  "🌭": { // Dachshund, hot-dog styled — long low body, short legs (procedural
+          // fallback only; the real look comes from models/dachshund.glb,
+          // a stretched/recolored/mustard-striped derivation of base.vox)
+    coat: 0xdeb06c, legMul: 0.55, bodyLenMul: 1.5, bodyWidMul: 0.85, bodyHeightMul: 0.8,
     headMul: 0.9, earStyle: "floppy-small", furry: false, sizeMul: 1, modelFile: "dachshund.glb",
+  },
+  "🦴": { // Golden Retriever — procedural fallback only; the real look
+         // comes from models/golden.glb, a recolor of base.vox
+    coat: 0xe6b254, legMul: 1.1, bodyLenMul: 1.1, bodyWidMul: 1.1, bodyHeightMul: 1.05,
+    headMul: 1, earStyle: "floppy-large", furry: false, sizeMul: 1.1, modelFile: "golden.glb",
   },
 };
 

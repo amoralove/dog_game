@@ -15,6 +15,7 @@ at a time.
 | 🦮 Big & steady | `labrador.glb` |
 | 🐕‍🦺 Working breed | `shepherd.glb` |
 | 🌭 Dachshund | `dachshund.glb` |
+| 🦴 Golden Retriever | `golden.glb` |
 
 ## Suggested workflow (MagicaVoxel)
 
@@ -74,6 +75,38 @@ this project already renders correctly, rather than starting from
 nothing. It's a one-way export (voxel grid, not editable box params) —
 regenerate from scratch if you want to tweak the *procedural* shape
 itself, don't hand-edit and expect it to sync back to app.js.
+
+## Deriving multiple breeds from one hand-edited base
+
+`build_breed_variants.py` takes a single hand-sculpted/touched-up base
+`.vox` (assumed to already match `voxelize_terrier.py`'s axis convention —
+i.e. it started life as that script's output and was edited in
+MagicaVoxel) and derives several breed `.glb`s from it programmatically,
+without needing to re-sculpt each one by hand:
+
+```bash
+python3 models/build_breed_variants.py base.vox models/golden.glb models/dachshund.glb
+```
+
+- **Golden retriever**: recolor only — same geometry as the base, just a
+  golden coat and warmer dark accents.
+- **Dachshund**: recolored to a hot-dog-bun palette with a mustard stripe
+  down the spine, torso stretched length-wise, and legs shortened by
+  compressing the low-height voxels and dropping the rest of the body
+  to meet them.
+
+Both outputs use adjacency-based face culling — skip any face between
+two solid voxels, since it's never visible — which took file size from
+~4.7MB down to ~350KB per model for a ~6,500-voxel base. Worth doing for
+any hand-sculpted (as opposed to sparse procedural) model; `vox_to_glb.py`
+above doesn't need this since the source dachshund_run.vox was only 369
+voxels.
+
+Tune `TORSO_START`/`TORSO_END`/`LEG_HEIGHT`/`STRETCH`/`LEG_SCALE` at the
+top of the script if you start from a differently-proportioned base —
+they were picked by inspecting this project's specific base file's
+layout (ASCII-art print the top-down and side silhouettes to find the
+right cutoffs before assuming these numbers carry over).
 
 ## Optional: rigging for the walk animation
 
