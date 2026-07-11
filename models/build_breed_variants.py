@@ -70,10 +70,15 @@ FACES = [
 VOXEL_SCALE = 0.035
 
 def build_glb(entries, colors_by_key, out_path, occupied):
-    # entries: list of (raw_xyz, engine_xyz, color_key)
+    # entries: list of (raw_xyz, engine_xyz, color_key, cube_scale_xyz).
+    # cube_scale lets a voxel's own cube be stretched/compressed to match
+    # a non-uniform position transform (see reshape()) — otherwise cubes
+    # whose *centers* were pulled apart leave real gaps between them
+    # (visible as the model looking "see-through"), and cubes pushed
+    # closer together overlap/z-fight.
     by_color = {}
-    for (raw_xyz, engine_xyz, ck) in entries:
-        by_color.setdefault(ck, []).append((raw_xyz, engine_xyz))
+    for (raw_xyz, engine_xyz, ck, cube_scale) in entries:
+        by_color.setdefault(ck, []).append((raw_xyz, engine_xyz, cube_scale))
 
     materials, accessors, buffer_views, primitives = [], [], [], []
     buffer_bytes = bytearray()
@@ -92,7 +97,7 @@ def build_glb(entries, colors_by_key, out_path, occupied):
     for ck, pts in by_color.items():
         positions, normals, indices = [], [], []
         vcount = 0
-        for (raw_xyz, (ex, ey, ez)) in pts:
+        for (raw_xyz, (ex, ey, ez), (sx, sy, sz)) in pts:
             rx, ry, rz = raw_xyz
             for normal, offset, corners in FACES:
                 neighbor = (rx+offset[0], ry+offset[1], rz+offset[2])
@@ -100,7 +105,7 @@ def build_glb(entries, colors_by_key, out_path, occupied):
                     continue  # internal face, never visible — skip
                 base = vcount
                 for (cx, cy, cz) in corners:
-                    positions += [ex + cx*VOXEL_SCALE, ey + cy*VOXEL_SCALE, ez + cz*VOXEL_SCALE]
+                    positions += [ex + cx*VOXEL_SCALE*sx, ey + cy*VOXEL_SCALE*sy, ez + cz*VOXEL_SCALE*sz]
                     normals += [float(normal[0]), float(normal[1]), float(normal[2])]
                 indices += [base, base+1, base+2, base, base+2, base+3]
                 vcount += 4
@@ -164,7 +169,7 @@ for (vx, vy, vz, c) in voxels_raw:
     ex = (vx - center_x) * VOXEL_SCALE
     ey = (vy - min_y) * VOXEL_SCALE
     ez = (vz - center_z) * VOXEL_SCALE
-    golden_entries.append(((vx,vy,vz), (ex,ey,ez), recolor_golden[c]))
+    golden_entries.append(((vx,vy,vz), (ex,ey,ez), recolor_golden[c], (1,1,1)))
 colors_map_golden = {v: v for v in set(recolor_golden.values())}
 build_glb(golden_entries, colors_map_golden, sys.argv[2], occupied)
 
@@ -178,21 +183,30 @@ TORSO_START, TORSO_END = 19, 45
 LEG_HEIGHT = 9
 STRETCH = 1.55
 LEG_SCALE = 0.42
+DACHSHUND_SIZE_MUL = 0.8  # extra overall shrink — the reshaped model read as too big
 recolor_dog = {1: BLACK, 2: BUN_DARK, 3: BUN, 4: CREAM, 5: ORANGE}
 
 LEG_HEIGHT_GROUND = LEG_HEIGHT - min_y  # convert threshold to ground-relative
 
 def reshape(vx, vy, vz):
+    # Returns (new_y, new_z, cube_scale_y, cube_scale_z). cube_scale must
+    # match however far apart this voxel's position was stretched/
+    # compressed from its neighbors, or adjacent cubes stop tiling
+    # exactly — stretched gaps read as the model being "see-through",
+    # compressed voxels overlap and z-fight.
     if vz < TORSO_START:
-        nvz = vz
+        nvz, sz = vz, 1
     elif vz <= TORSO_END:
-        nvz = TORSO_START + (vz - TORSO_START) * STRETCH
+        nvz, sz = TORSO_START + (vz - TORSO_START) * STRETCH, STRETCH
     else:
-        nvz = vz + (TORSO_END - TORSO_START) * (STRETCH - 1)
+        nvz, sz = vz + (TORSO_END - TORSO_START) * (STRETCH - 1), 1
     gy = vy - min_y  # ground-relative height (0 = lowest voxel in the source)
     leg_gap = LEG_HEIGHT_GROUND - LEG_HEIGHT_GROUND * LEG_SCALE
-    nvy = gy * LEG_SCALE if gy < LEG_HEIGHT_GROUND else gy - leg_gap
-    return nvy, nvz
+    if gy < LEG_HEIGHT_GROUND:
+        nvy, sy = gy * LEG_SCALE, LEG_SCALE
+    else:
+        nvy, sy = gy - leg_gap, 1
+    return nvy, nvz, sy, sz
 
 # mustard stripe: topmost torso voxel near center width, per length slot
 top_at_len = {}
@@ -205,11 +219,12 @@ stripe_set = {(vx, vy, vz) for (vx, vy, vz, c) in voxels_raw
 
 dachshund_entries = []
 for (vx, vy, vz, c) in voxels_raw:
-    nvy, nvz = reshape(vx, vy, vz)
+    nvy, nvz, sy, sz = reshape(vx, vy, vz)
     color = MUSTARD if (vx, vy, vz) in stripe_set else recolor_dog[c]
-    ex = (vx - center_x) * VOXEL_SCALE
-    ey = nvy * VOXEL_SCALE
-    ez = (nvz - center_z) * VOXEL_SCALE
-    dachshund_entries.append(((vx,vy,vz), (ex,ey,ez), color))
+    ex = (vx - center_x) * VOXEL_SCALE * DACHSHUND_SIZE_MUL
+    ey = nvy * VOXEL_SCALE * DACHSHUND_SIZE_MUL
+    ez = (nvz - center_z) * VOXEL_SCALE * DACHSHUND_SIZE_MUL
+    cube_scale = (DACHSHUND_SIZE_MUL, sy * DACHSHUND_SIZE_MUL, sz * DACHSHUND_SIZE_MUL)
+    dachshund_entries.append(((vx,vy,vz), (ex,ey,ez), color, cube_scale))
 colors_map_dog = {v: v for v in set(recolor_dog.values()) | {MUSTARD}}
 build_glb(dachshund_entries, colors_map_dog, sys.argv[3], occupied)
