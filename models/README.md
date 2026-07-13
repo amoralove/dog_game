@@ -57,17 +57,32 @@ script. It always produces a static model (no leg articulation), since
 merged voxel art doesn't have separate movable parts — see the note below
 if you want animation instead.
 
-## Starting from the procedural terrier shape
+## Starting from a procedural shape
 
-If you'd rather sculpt from the existing procedural dog than start blank,
-`voxelize_terrier.py` rasterizes the exact box geometry `buildDogMesh()`
-draws for the default "🐕 Medium dog" look (same positions, sizes, and
-colors, ear angles included) into a `.vox` file you can open directly in
-MagicaVoxel:
+If you'd rather sculpt from an existing procedural dog than start blank,
+`voxelize_profile.py` rasterizes the exact box geometry `buildDogMesh()` +
+`addEars()` draw for any `LOOK_PROFILES` entry (same positions, sizes,
+colors, and ear angles as the running app) into a `.vox` file you can
+open directly in MagicaVoxel:
 
 ```bash
-python3 models/voxelize_terrier.py terrier.vox
+python3 models/voxelize_profile.py terrier terrier.vox
+python3 models/voxelize_profile.py puppy puppy.vox
+python3 models/voxelize_profile.py poodle poodle.vox
+python3 models/voxelize_profile.py labrador labrador.vox
+python3 models/voxelize_profile.py shepherd shepherd.vox
 ```
+
+The first argument is one of the keys in the script's own `PROFILES` dict
+(currently `terrier`, `puppy`, `poodle`, `labrador`, `shepherd` — mirrors
+`LOOK_PROFILES` in app.js, minus dachshund/golden since those already
+have a real hand-edited source in `base.vox`). If a `LOOK_PROFILES` entry
+in app.js changes, update the matching entry here to keep them in sync —
+it's a manual mirror, not a shared source of truth.
+
+`voxelize_terrier.py` (terrier only, hardcoded) still exists for
+backwards compatibility but `voxelize_profile.py` is the one to use going
+forward — same output for `terrier`, plus every other look.
 
 Useful as a base to reshape into a different breed (stretch it into a
 dachshund, shrink the legs, etc.) while keeping the proportions/parts
