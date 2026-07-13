@@ -196,6 +196,29 @@ PROFILES = {
         "coat": (0x2b,0x2b,0x2b), "legMul": 1.2, "bodyLenMul": 1.1, "bodyWidMul": 0.92, "bodyHeightMul": 0.95,
         "headMul": 0.95, "earStyle": "perked-large", "furry": False,
     },
+    # Mirrors of LOOK_PROFILES["🌭"] / ["🦴"] in app.js — these breeds
+    # already render from a hand-edited base.vox derivative in the app
+    # (models/dachshund.glb, models/golden.glb), not from this script's
+    # output. This is a *second*, independently-generated design built
+    # straight from the same shape multipliers the procedural fallback
+    # uses, in case you want a from-scratch alternative to sculpt from
+    # instead of the hand-edited one.
+    "dachshund": {
+        "coat": (0xde,0xb0,0x6c), "legMul": 0.55, "bodyLenMul": 1.5, "bodyWidMul": 0.85, "bodyHeightMul": 0.8,
+        "headMul": 0.9, "earStyle": "floppy-small", "furry": False,
+    },
+    "golden": {
+        "coat": (0xe6,0xb2,0x54), "legMul": 1.1, "bodyLenMul": 1.1, "bodyWidMul": 1.1, "bodyHeightMul": 1.05,
+        "headMul": 1, "earStyle": "floppy-large", "furry": False,
+    },
+    # Not a LOOK_PROFILES entry in app.js (no husky look exists yet) —
+    # added on request. Athletic medium build, wedge-shaped head, alert
+    # upright ears, classic gray-and-white coat. If a husky look gets
+    # added to the app, keep this in sync the same manual way as the rest.
+    "husky": {
+        "coat": (0xa8,0xb0,0xb8), "legMul": 1.05, "bodyLenMul": 1, "bodyWidMul": 1, "bodyHeightMul": 1,
+        "headMul": 0.95, "earStyle": "perked", "furry": False,
+    },
 }
 
 if __name__ == '__main__':

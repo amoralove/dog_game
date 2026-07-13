@@ -71,14 +71,32 @@ python3 models/voxelize_profile.py puppy puppy.vox
 python3 models/voxelize_profile.py poodle poodle.vox
 python3 models/voxelize_profile.py labrador labrador.vox
 python3 models/voxelize_profile.py shepherd shepherd.vox
+python3 models/voxelize_profile.py dachshund dachshund.vox
+python3 models/voxelize_profile.py golden golden.vox
+python3 models/voxelize_profile.py husky husky.vox
 ```
 
-The first argument is one of the keys in the script's own `PROFILES` dict
-(currently `terrier`, `puppy`, `poodle`, `labrador`, `shepherd` — mirrors
-`LOOK_PROFILES` in app.js, minus dachshund/golden since those already
-have a real hand-edited source in `base.vox`). If a `LOOK_PROFILES` entry
-in app.js changes, update the matching entry here to keep them in sync —
-it's a manual mirror, not a shared source of truth.
+The first argument is one of the keys in the script's own `PROFILES` dict:
+
+- `terrier`, `puppy`, `poodle`, `labrador`, `shepherd` mirror the
+  procedural-only `LOOK_PROFILES` entries in app.js exactly.
+- `dachshund`, `golden` also mirror their `LOOK_PROFILES` entries, but
+  those two looks actually render from a *different*, hand-edited
+  source in the running app (`base.vox` → `models/dachshund.glb` /
+  `models/golden.glb`). These are a from-scratch second design built
+  straight from the shape multipliers, in case you want an alternative
+  to sculpt from instead of the hand-edited one.
+- `husky` isn't a `LOOK_PROFILES` entry at all — there's no husky look
+  in the app yet. Added on request with reasonable breed proportions
+  (athletic medium build, wedge head, upright ears, gray-and-white
+  coat). Note there's also a `husky_run.vox` in the same folder from
+  earlier — a separately-sourced real husky model, unrelated to this
+  procedural one. Ask if you want that one converted instead of/as well
+  as this one.
+
+If a `LOOK_PROFILES` entry in app.js changes, update the matching entry
+here to keep them in sync — it's a manual mirror, not a shared source of
+truth.
 
 `voxelize_terrier.py` (terrier only, hardcoded) still exists for
 backwards compatibility but `voxelize_profile.py` is the one to use going
